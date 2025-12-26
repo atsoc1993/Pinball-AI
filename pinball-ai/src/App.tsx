@@ -9,6 +9,7 @@ export default function App() {
   // eg target position for game bar of 5 will set the "left" style property to "150px"
   const gameBall = useRef<HTMLDivElement | null>(null)
 
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (!gameBall.current) return;
@@ -17,19 +18,21 @@ export default function App() {
 
       let newTopValue: number;
 
-      if (gameBallPos.top < 350 && falling) {
-        newTopValue = gameBallPos.top + 1
-        adjustBallPosition(newTopValue);
-        console.log(`Falling: ${newTopValue} ${falling}`)
+      const gravityDelta = 1 * ((gameBallPos.top - 98) / 50) 
 
-      } else {
-        newTopValue = gameBallPos.top - 1
+      if (gameBallPos.top < 350 && falling) {
+        newTopValue = gameBallPos.top + gravityDelta
         adjustBallPosition(newTopValue);
-        console.log(`Rising: ${newTopValue} ${falling}`)
+        // console.log(`Falling: ${newTopValue} ${falling}`)
+        
+      } else {
+        newTopValue = gameBallPos.top - gravityDelta
+        adjustBallPosition(newTopValue);
+        // console.log(`Rising: ${newTopValue} ${falling}`)
       }
-      
+
       checkFallingState(newTopValue)
-    }, 5)
+    }, 1)
 
     return () => clearInterval(interval)
 
@@ -41,8 +44,8 @@ export default function App() {
   }
 
   const checkFallingState = (newTopValue: number) => {
-    if (newTopValue == 100) setFalling(true);
-    if (newTopValue == 350) setFalling(false);
+    if (newTopValue <= 100) setFalling(true);
+    if (newTopValue >= 350) setFalling(false);
     return
   }
 
