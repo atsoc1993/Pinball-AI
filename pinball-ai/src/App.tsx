@@ -10,8 +10,15 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log(gameBall.current?.getBoundingClientRect())
-    }, 50)
+      if (!gameBall.current) return;
+      const gameBallPos = gameBall.current.getBoundingClientRect()
+      console.log(gameBallPos);
+      console.log(gameBall.current.style.top)
+      if (gameBallPos.top < 350) {
+        gameBall.current.style.top = `${(gameBallPos.top + 1).toLocaleString()}px`
+      }
+
+    }, 5)
 
     return () => clearInterval(interval)
 
