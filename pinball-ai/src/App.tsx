@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 
 export default function App() {
 
@@ -7,6 +7,15 @@ export default function App() {
   // whatever the predicted game bar position is, we set pixels to the product of this number & 30
   // eg target position for game bar of 5 will set the "left" style property to "150px"
   const gameBall = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("Test")
+    }, 500)
+
+    return () => clearInterval(interval)
+
+  }, [])
 
   return (
     // Game Box
@@ -20,7 +29,8 @@ export default function App() {
       ref={gameBar} />
 
       {/* game ball */}
-      <div style={{ width: '50px', height: '50px', borderRadius: '50px', backgroundColor: 'white'}}>
+      <div style={{ width: '50px', height: '50px', borderRadius: '50px', backgroundColor: 'white'}}
+      ref={gameBall}>
 
       </div>
     </div>
