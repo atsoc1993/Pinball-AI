@@ -1,5 +1,8 @@
 export default function App() {
   return (
-    <h1>Test</h1>
+    // Game Box
+    <div style={{width: '500px', height: '500px', backgroundColor: 'black'}}>
+
+    </div>
   )
 }
