@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react"
 
 export default function App() {
 
-  const [falling, setFalling] = useState(true);
+  const [falling, setFalling] = useState<boolean>(true);
+  const [movingRight, setMovingRight] = useState<boolean>(true);
   const gameBar = useRef<HTMLDivElement | null>(null)
   // 500 / 30 = 20, horizontal game bar positions in intervals of 20
   // whatever the predicted game bar position is, we set pixels to the product of this number & 30
@@ -15,37 +16,51 @@ export default function App() {
       if (!gameBall.current) return;
 
       const gameBallPos = gameBall.current.getBoundingClientRect()
+      const topPosition = gameBallPos.top
+      const leftPosition = gameBallPos.left
 
-      let newTopValue: number;
-
-      const gravityDelta = 1 * ((gameBallPos.top - 98) / 50) 
-
-      if (gameBallPos.top < 350 && falling) {
-        newTopValue = gameBallPos.top + gravityDelta
-        adjustBallPosition(newTopValue);
-        // console.log(`Falling: ${newTopValue} ${falling}`)
-        
-      } else {
-        newTopValue = gameBallPos.top - gravityDelta
-        adjustBallPosition(newTopValue);
-        // console.log(`Rising: ${newTopValue} ${falling}`)
-      }
-
-      checkFallingState(newTopValue)
+      const newTopValue = getNewTopValue(topPosition);
+      const newLeftValue = getNewLeftValue(leftPosition);
+      
+      adjustBallPosition(newTopValue, newLeftValue);
+      checkFallingState(newTopValue);
+      checkMovingRightState(newLeftValue);
     }, 1)
 
     return () => clearInterval(interval)
 
-  }, [falling])
+  }, [falling, movingRight])
 
-  const adjustBallPosition = (newTopValue: number) => {
-    if (!gameBall.current) return;
-    gameBall.current.style.top = `${(newTopValue).toLocaleString()}px`
+  const getNewTopValue = (topPosition: number): number => {
+      const gravityDelta = 1 * ((topPosition - 98) / 50) 
+      if (topPosition < 350 && falling) {
+        return topPosition + gravityDelta        
+      } else {
+        return topPosition - gravityDelta
+      }
   }
 
-  const checkFallingState = (newTopValue: number) => {
+  const getNewLeftValue = (leftPosition: number): number => {
+      if (movingRight) {
+        return leftPosition + .8
+      } else {
+        return leftPosition - .8
+      }
+  }
+  const adjustBallPosition = (newTopValue: number, newLeftValue: number): void => {
+    if (!gameBall.current) return;
+    gameBall.current.style.top = `${(newTopValue).toLocaleString()}px`
+    gameBall.current.style.left = `${(newLeftValue).toLocaleString()}px`
+  }
+
+  const checkFallingState = (newTopValue: number): void => {
     if (newTopValue <= 100) setFalling(true);
     if (newTopValue >= 350) setFalling(false);
+    return
+  }
+  const checkMovingRightState = (newLeftValue: number): void => {
+    if (newLeftValue <= 0) setMovingRight(true);
+    if (newLeftValue >= 450) setMovingRight(false);
     return
   }
 
