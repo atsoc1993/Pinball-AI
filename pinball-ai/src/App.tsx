@@ -10,8 +10,8 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log("Test")
-    }, 500)
+      console.log(gameBall.current?.getBoundingClientRect())
+    }, 50)
 
     return () => clearInterval(interval)
 
@@ -29,7 +29,7 @@ export default function App() {
       ref={gameBar} />
 
       {/* game ball */}
-      <div style={{ width: '50px', height: '50px', borderRadius: '50px', backgroundColor: 'white'}}
+      <div style={{ width: '50px', height: '50px', borderRadius: '50px', backgroundColor: 'white', top: '100px', position: 'fixed'}}
       ref={gameBall}>
 
       </div>
