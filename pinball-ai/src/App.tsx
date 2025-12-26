@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import axios from 'axios'
 
 export default function App() {
 
@@ -9,6 +10,8 @@ export default function App() {
   // whatever the predicted game bar position is, we set pixels to the product of this number & 30
   // eg target position for game bar of 5 will set the "left" style property to "150px"
   const gameBall = useRef<HTMLDivElement | null>(null)
+  const [lastMaxHeightPosition, setLastMaxHeightPosition] = useState<number | undefined>()
+  const [lastImpactPosition, setImpactPosition] = useState<number | undefined>()
 
   const [failed, setFailed] = useState<boolean>(false);
 
@@ -25,13 +28,13 @@ export default function App() {
       const newLeftValue = getNewLeftValue(leftPosition);
 
       adjustBallPosition(newTopValue, newLeftValue);
-      checkFallingState(newTopValue, gameBallPos);
+      updateFallingState(newTopValue, gameBallPos);
       checkMovingRightState(newLeftValue);
     }, 1)
 
     return () => clearInterval(interval)
 
-  }, [falling, movingRight, failed])
+  }, [falling, movingRight, failed, lastImpactPosition])
 
   const getNewTopValue = (topPosition: number): number => {
     const gravityDelta = 1 * ((topPosition - 98) / 50)
@@ -57,23 +60,30 @@ export default function App() {
     return
   }
 
-  const checkFallingState = (newTopValue: number, gameBallPos: DOMRect): void => {
-    if (newTopValue <= 100) setFalling(true);
-    if (newTopValue >= 350) {
-      const madeImpact = gameBarPresentForImpact(gameBallPos);
-      console.log(madeImpact)
+  const updateFallingState = (newTopValue: number, gameBallPos: DOMRect): void => {
+    if (newTopValue <= 100) {
+      setFalling(true)
+      setLastMaxHeightPosition(gameBallPos.left);
+      setImpactPosition(undefined)
+    }
+    if (newTopValue >= 350 && !lastImpactPosition) {
+      const [madeImpact, impactPos] = gameBarPresentForImpact(gameBallPos);
+      setImpactPosition(impactPos);
       if (madeImpact) setFalling(false);
     }
-    if (newTopValue > 500) setFailed(true);
+    if (newTopValue > 500) {
+      setFailed(true)
+      updateModel()
+    };
     return
   }
 
-  const gameBarPresentForImpact = (gameBallPos: DOMRect): boolean => {
-    if (!gameBar.current) return false;
+  const gameBarPresentForImpact = (gameBallPos: DOMRect): [boolean, number] => {
+    if (!gameBar.current) return [false, gameBallPos.left];
     const gameBarPos = gameBar.current.getBoundingClientRect();
     const [qualifyingRangeLow, qualifyingRangeHigh] = [gameBallPos.left - 25, gameBallPos.left + 25]
-    if ((qualifyingRangeLow <= gameBarPos.left) && (gameBarPos.left <= qualifyingRangeHigh)) return true;
-    return false;
+    if ((qualifyingRangeLow <= gameBarPos.left) && (gameBarPos.left <= qualifyingRangeHigh)) return [true, gameBallPos.left];
+    return [false, gameBallPos.left];
   }
 
   const checkMovingRightState = (newLeftValue: number): void => {
@@ -82,9 +92,21 @@ export default function App() {
     return
   }
 
+  const updateModel = async () => {
+    const data = {
+      moving_right: movingRight,
+      x_pos_at_max_height: lastMaxHeightPosition,
+      impact_position: lastImpactPosition
+    }
+    console.log(data)
+    const response = await axios.patch('http://localhost:8000/app/add_pinball_data', data)
+    console.log(response)
+
+
+  }
   return (
     // Game Box
-    <div style={{ width: '500px', height: '500px', backgroundColor: 'black', display: 'flex'}}>
+    <div style={{ width: '500px', height: '500px', backgroundColor: 'black', display: 'flex' }}>
       {/* // Game Bar  */}
       {!failed ?
         <>
@@ -101,9 +123,9 @@ export default function App() {
 
           </div>
         </>
-        : <div style={{display: 'flex', justifyContent: 'center', flex: '1 1 100%'}}>
-          <h1 style={{color: 'white', margin: 0, alignSelf: 'center'}}>Failed</h1>
-          </div>
+        : <div style={{ display: 'flex', justifyContent: 'center', flex: '1 1 100%' }}>
+          <h1 style={{ color: 'white', margin: 0, alignSelf: 'center' }}>Failed</h1>
+        </div>
       }
     </div>
   )
