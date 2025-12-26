@@ -5,16 +5,32 @@ export default function App() {
 
   const [falling, setFalling] = useState<boolean>(true);
   const [movingRight, setMovingRight] = useState<boolean>(true);
+  const [lastMaxHeightPosition, setLastMaxHeightPosition] = useState<number | undefined>()
+  const [lastImpactPosition, setImpactPosition] = useState<number | undefined>()
   const gameBar = useRef<HTMLDivElement | null>(null)
   // 500 / 30 = 20, horizontal game bar positions in intervals of 20
   // whatever the predicted game bar position is, we set pixels to the product of this number & 30
   // eg target position for game bar of 5 will set the "left" style property to "150px"
   const gameBall = useRef<HTMLDivElement | null>(null)
-  const [lastMaxHeightPosition, setLastMaxHeightPosition] = useState<number | undefined>()
-  const [lastImpactPosition, setImpactPosition] = useState<number | undefined>()
-
   const [failed, setFailed] = useState<boolean>(false);
+  const [nextGameBarXPositionPrediction, setNextGameBarXPositionPrediction] = useState<number | undefined>();
 
+  type ModelParams = {
+    weight_one: number,
+    weight_two: number,
+    bias: number
+  };
+
+  const [modelParams, setModelParams] = useState<ModelParams | undefined>();
+
+  const getInitialModelParams = async () => {
+    const response = await axios.get('http://localhost:8000/app/get_current_model_parameters')
+    console.log(response.data);
+    setModelParams(response.data)
+  }
+  useEffect(() => {
+    getInitialModelParams();
+  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -98,9 +114,9 @@ export default function App() {
       x_pos_at_max_height: lastMaxHeightPosition,
       impact_position: lastImpactPosition
     }
-    console.log(data)
-    const response = await axios.patch('http://localhost:8000/app/add_pinball_data', data)
-    console.log(response)
+    const response = await axios.patch('http://localhost:8000/app/add_pinball_data_and_get_updated_params', data)
+    console.log(response.data)
+    setModelParams(response.data)
 
 
   }
