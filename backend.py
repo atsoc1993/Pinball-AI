@@ -59,8 +59,8 @@ async def retrain_model() -> ModelParams:
     global global_b
 
     w1 = w2 = b = 0
-    learning_rate = 0.000001
-    epochs = 10_000
+    learning_rate = 0.0001
+    epochs = 50_000
     all_pinball_data = pd.read_csv(pinball_data_csv_filepath)
     len_data = len(all_pinball_data['direction'])
     direction_feature = all_pinball_data['direction'].map({'left': 0, 'right': 1})
