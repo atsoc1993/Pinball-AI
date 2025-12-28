@@ -6,7 +6,7 @@
 
 # Current State
 
-<video controls src="ModelTestVisualized.mp4" title="Title"></video>
+https://github.com/user-attachments/assets/cf251b58-0ca1-46a5-a0c6-1b4aacad3b7b
 
 Implemented as planned— there is a Python FastAPI Backend & React TS front-end that visualizes the game ball (this can be seen in the video above); we are not using angle or velocity in features due to complications when attempting to visualize these, we instead just use the initial direction of the game ball (left/right) as well as the impact location (an x-axis point at a fixed height in the game window where the game bar is). Learning rates & epochs are not set in stone, and still zeroing in on optimal values for these— the model could benefit from additional features eg; does the ball impact the wall while descending/ascending.
 
