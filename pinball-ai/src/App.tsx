@@ -5,15 +5,17 @@ export default function App() {
 
   const [falling, setFalling] = useState<boolean>(true);
   const [movingRight, setMovingRight] = useState<boolean>(true);
+  const [initiallyMovingRight, setInitiallyMovingRight] = useState(true);
   const [lastMaxHeightPosition, setLastMaxHeightPosition] = useState<number | undefined>()
   const [lastImpactPosition, setImpactPosition] = useState<number | undefined>()
+  
+  const lockImpact = useRef(false);
+  const requiresNewInitial = useRef(true);
+  const nextTargetSetRef = useRef(false);
   const gameBar = useRef<HTMLDivElement | null>(null)
-  // 500 / 30 = 20, horizontal game bar positions in intervals of 20
-  // whatever the predicted game bar position is, we set pixels to the product of this number & 30
-  // eg target position for game bar of 5 will set the "left" style property to "150px"
+
   const gameBall = useRef<HTMLDivElement | null>(null)
   const [failed, setFailed] = useState<boolean>(false);
-  // const [nextGameBarXPositionPrediction, setNextGameBarXPositionPrediction] = useState<number | undefined>();
 
   type ModelParams = {
     weight_1: number,
@@ -31,32 +33,60 @@ export default function App() {
     getInitialModelParams();
   }, [])
 
+  const setInitialXPosition = (): [number, boolean] => {
+
+    if (!gameBall.current) return [0, false];
+    const randomNum = Math.random()
+    const initialMaxHeightXPos = Number((randomNum * 500).toFixed(0))
+    const randomBinary = Number((randomNum * 100).toFixed(0)) % 2
+    const willMoveRight = randomBinary == 1 ? true : false;
+    setMovingRight(willMoveRight);
+    setInitiallyMovingRight(willMoveRight);
+    (true)
+    
+    gameBall.current.style.left = `${initialMaxHeightXPos}px`
+    setLastMaxHeightPosition(initialMaxHeightXPos / 500);
+    return [initialMaxHeightXPos, willMoveRight]
+  }
+
   useEffect(() => {
+
     if (failed) {
       setTimeout(() => {
+        requiresNewInitial.current = true;
+        nextTargetSetRef.current = false;
         setLastMaxHeightPosition(undefined);
-        setImpactPosition(undefined);
         setFailed(false);
-      }, 1000);
-    } else {
+        lockImpact.current = false
+      }, 2000);
+  }
+ }, [failed, lastImpactPosition])
+
+  useEffect(() => {
 
       const interval = setInterval(() => {
-        if (!gameBall.current) return;
+        if (!modelParams) return;
+        if (requiresNewInitial.current) {
+          requiresNewInitial.current = false;
+          const [initialMaxHeightXPos, willMoveRight] = setInitialXPosition();
+          setNextGameBarPosition(initialMaxHeightXPos / 500, willMoveRight);
+        } else {
 
-        const gameBallPos = gameBall.current.getBoundingClientRect()
-        const topPosition = gameBallPos.top
-        const leftPosition = gameBallPos.left
-
-        const newTopValue = getNewTopValue(topPosition);
-        const newLeftValue = getNewLeftValue(leftPosition);
-
-        adjustBallPosition(newTopValue, newLeftValue);
-        updateFallingState(newTopValue, gameBallPos);
-        checkMovingRightState(newLeftValue);
-      }, 0.1)
+          if (!gameBall.current) return;
+          
+          const gameBallPos = gameBall.current.getBoundingClientRect()
+          const topPosition = gameBallPos.top
+          const leftPosition = gameBallPos.left
+          const newTopValue = getNewTopValue(topPosition);
+          const newLeftValue = getNewLeftValue(leftPosition);
+          
+          adjustBallPosition(newTopValue, newLeftValue);
+          updateFallingState(newTopValue, gameBallPos);
+          checkMovingRightState(newLeftValue);
+        }
+      }, 1)
 
       return () => clearInterval(interval)
-    }
 
   }, [falling, movingRight, failed, lastImpactPosition, modelParams])
 
@@ -89,39 +119,53 @@ export default function App() {
       const maxHeightPosition = gameBallPos.left - 25
       setFalling(true)
       setLastMaxHeightPosition(maxHeightPosition / 500);
-      setImpactPosition(undefined)
-      const nextGameBarPosition = predictNextGameBarPosition(maxHeightPosition)
-      console.log(`Prediction: ${nextGameBarPosition}`)
-      // setNextGameBarXPositionPrediction(nextGameBarPosition);
-      if (!gameBar.current) return;
-      gameBar.current.style.left = `${nextGameBarPosition}px`
+      setInitiallyMovingRight(movingRight);
+      if (!requiresNewInitial.current && !nextTargetSetRef.current) setNextGameBarPosition(maxHeightPosition / 500, movingRight)
+
     }
 
-    if (newTopValue >= 350 && !lastImpactPosition) {
+    if (newTopValue >= 350 && !lockImpact.current) {
+      lockImpact.current = true;
       const [madeImpact, impactPos] = gameBarPresentForImpact(gameBallPos);
+      console.log(madeImpact, impactPos)
       setImpactPosition(impactPos);
-      if (madeImpact) setFalling(false);
+      if (madeImpact) {
+        setFalling(false)
+        lockImpact.current = false;
+        nextTargetSetRef.current = false;
+      };
     }
     if (newTopValue > 500) {
       setFailed(true)
       updateModel()
+
     };
     return
   }
-
-  const predictNextGameBarPosition = (maxHeightPosition: number): number => {
-    if (!modelParams) return 0;
-    const direction = movingRight ? 1 : 0
-    console.log(modelParams.weight_1, modelParams.weight_2, modelParams.bias)
-
-    return modelParams.weight_1 * maxHeightPosition + modelParams.weight_2 * direction + modelParams.bias
+  const setNextGameBarPosition = (maxHeightPosition: number, isMovingRight: boolean) => {
+      if (nextTargetSetRef.current) return;
+      nextTargetSetRef.current = true;
+      const nextGameBarPosition = predictNextGameBarPosition(maxHeightPosition, isMovingRight)
+      console.log(`Prediction: ${nextGameBarPosition}`)
+      // setNextGameBarXPositionPrediction(nextGameBarPosition);
+      if (!gameBar.current) return;
+      gameBar.current.style.left = `${nextGameBarPosition}px`
   }
 
+  const predictNextGameBarPosition = (maxHeightPosition: number, isMovingRight: boolean): number => {
+    if (!modelParams) return 0;
+    const direction = isMovingRight ? 1 : 0
+    // console.log(modelParams.weight_1, modelParams.weight_2, modelParams.bias)
+
+    return modelParams.weight_1 * direction + modelParams.weight_2 * maxHeightPosition + modelParams.bias
+  }
+
+
   const gameBarPresentForImpact = (gameBallPos: DOMRect): [boolean, number] => {
-    if (!gameBar.current) return [false, gameBallPos.left + 50];
+    if (!gameBar.current) return [false, gameBallPos.left + 25];
     const gameBarPos = gameBar.current.getBoundingClientRect();
-    const [qualifyingRangeLow, qualifyingRangeHigh] = [gameBallPos.left - 40, gameBallPos.left + 40]
-    if ((qualifyingRangeLow <= gameBarPos.left) && (gameBarPos.left <= qualifyingRangeHigh)) return [true, gameBallPos.left + 50];
+    const [qualifyingRangeLow, qualifyingRangeHigh] = [gameBallPos.left - 25, gameBallPos.left + 25]
+    if ((qualifyingRangeLow <= gameBarPos.left + 25) && (gameBarPos.left - 25 <= qualifyingRangeHigh)) return [true, gameBallPos.left + 25];
     return [false, gameBallPos.left + 50];
   }
 
@@ -133,13 +177,12 @@ export default function App() {
 
   const updateModel = async () => {
     const data = {
-      moving_right: movingRight,
+      moving_right: initiallyMovingRight,
       x_pos_at_max_height: lastMaxHeightPosition,
       impact_position: lastImpactPosition
     }
     const response = await axios.patch('http://localhost:8000/app/add_pinball_data_and_get_updated_params', data)
     setModelParams(response.data)
-
 
   }
   return (
@@ -151,7 +194,7 @@ export default function App() {
           <div style={{
             width: '50px', height: '20px', backgroundColor: 'white',
             position: 'fixed',
-            left: '200px', top: '400px'
+            left: '0px', top: '400px'
           }}
             ref={gameBar} />
 
