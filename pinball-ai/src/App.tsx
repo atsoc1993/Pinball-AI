@@ -13,11 +13,11 @@ export default function App() {
   // eg target position for game bar of 5 will set the "left" style property to "150px"
   const gameBall = useRef<HTMLDivElement | null>(null)
   const [failed, setFailed] = useState<boolean>(false);
-  const [nextGameBarXPositionPrediction, setNextGameBarXPositionPrediction] = useState<number | undefined>();
+  // const [nextGameBarXPositionPrediction, setNextGameBarXPositionPrediction] = useState<number | undefined>();
 
   type ModelParams = {
-    weight_one: number,
-    weight_two: number,
+    weight_1: number,
+    weight_2: number,
     bias: number
   };
 
@@ -25,7 +25,6 @@ export default function App() {
 
   const getInitialModelParams = async () => {
     const response = await axios.get('http://localhost:8000/app/get_current_model_parameters')
-    console.log(response.data);
     setModelParams(response.data)
   }
   useEffect(() => {
@@ -33,24 +32,33 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!gameBall.current) return;
+    if (failed) {
+      setTimeout(() => {
+        setLastMaxHeightPosition(undefined);
+        setImpactPosition(undefined);
+        setFailed(false);
+      }, 1000);
+    } else {
 
-      const gameBallPos = gameBall.current.getBoundingClientRect()
-      const topPosition = gameBallPos.top
-      const leftPosition = gameBallPos.left
+      const interval = setInterval(() => {
+        if (!gameBall.current) return;
 
-      const newTopValue = getNewTopValue(topPosition);
-      const newLeftValue = getNewLeftValue(leftPosition);
+        const gameBallPos = gameBall.current.getBoundingClientRect()
+        const topPosition = gameBallPos.top
+        const leftPosition = gameBallPos.left
 
-      adjustBallPosition(newTopValue, newLeftValue);
-      updateFallingState(newTopValue, gameBallPos);
-      checkMovingRightState(newLeftValue);
-    }, 1)
+        const newTopValue = getNewTopValue(topPosition);
+        const newLeftValue = getNewLeftValue(leftPosition);
 
-    return () => clearInterval(interval)
+        adjustBallPosition(newTopValue, newLeftValue);
+        updateFallingState(newTopValue, gameBallPos);
+        checkMovingRightState(newLeftValue);
+      }, 0.1)
 
-  }, [falling, movingRight, failed, lastImpactPosition])
+      return () => clearInterval(interval)
+    }
+
+  }, [falling, movingRight, failed, lastImpactPosition, modelParams])
 
   const getNewTopValue = (topPosition: number): number => {
     const gravityDelta = 1 * ((topPosition - 98) / 50)
@@ -71,17 +79,24 @@ export default function App() {
 
   const adjustBallPosition = (newTopValue: number, newLeftValue: number): void => {
     if (!gameBall.current) return;
-    gameBall.current.style.top = `${(newTopValue).toLocaleString()}px`
-    gameBall.current.style.left = `${(newLeftValue).toLocaleString()}px`
+    gameBall.current.style.top = `${(newTopValue).toString()}px`
+    gameBall.current.style.left = `${(newLeftValue).toString()}px`
     return
   }
 
   const updateFallingState = (newTopValue: number, gameBallPos: DOMRect): void => {
     if (newTopValue <= 100) {
+      const maxHeightPosition = gameBallPos.left - 25
       setFalling(true)
-      setLastMaxHeightPosition(gameBallPos.left);
+      setLastMaxHeightPosition(maxHeightPosition / 500);
       setImpactPosition(undefined)
+      const nextGameBarPosition = predictNextGameBarPosition(maxHeightPosition)
+      console.log(`Prediction: ${nextGameBarPosition}`)
+      // setNextGameBarXPositionPrediction(nextGameBarPosition);
+      if (!gameBar.current) return;
+      gameBar.current.style.left = `${nextGameBarPosition}px`
     }
+
     if (newTopValue >= 350 && !lastImpactPosition) {
       const [madeImpact, impactPos] = gameBarPresentForImpact(gameBallPos);
       setImpactPosition(impactPos);
@@ -94,12 +109,20 @@ export default function App() {
     return
   }
 
+  const predictNextGameBarPosition = (maxHeightPosition: number): number => {
+    if (!modelParams) return 0;
+    const direction = movingRight ? 1 : 0
+    console.log(modelParams.weight_1, modelParams.weight_2, modelParams.bias)
+
+    return modelParams.weight_1 * maxHeightPosition + modelParams.weight_2 * direction + modelParams.bias
+  }
+
   const gameBarPresentForImpact = (gameBallPos: DOMRect): [boolean, number] => {
-    if (!gameBar.current) return [false, gameBallPos.left];
+    if (!gameBar.current) return [false, gameBallPos.left + 50];
     const gameBarPos = gameBar.current.getBoundingClientRect();
-    const [qualifyingRangeLow, qualifyingRangeHigh] = [gameBallPos.left - 25, gameBallPos.left + 25]
-    if ((qualifyingRangeLow <= gameBarPos.left) && (gameBarPos.left <= qualifyingRangeHigh)) return [true, gameBallPos.left];
-    return [false, gameBallPos.left];
+    const [qualifyingRangeLow, qualifyingRangeHigh] = [gameBallPos.left - 40, gameBallPos.left + 40]
+    if ((qualifyingRangeLow <= gameBarPos.left) && (gameBarPos.left <= qualifyingRangeHigh)) return [true, gameBallPos.left + 50];
+    return [false, gameBallPos.left + 50];
   }
 
   const checkMovingRightState = (newLeftValue: number): void => {
@@ -115,7 +138,6 @@ export default function App() {
       impact_position: lastImpactPosition
     }
     const response = await axios.patch('http://localhost:8000/app/add_pinball_data_and_get_updated_params', data)
-    console.log(response.data)
     setModelParams(response.data)
 
 
